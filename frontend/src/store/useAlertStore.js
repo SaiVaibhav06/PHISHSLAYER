@@ -10,6 +10,9 @@ export const useAlertStore = create((set) => ({
   addAlert: (alert) => set((state) => ({ 
     alerts: [alert, ...state.alerts].slice(0, 100) 
   })),
+  updateAlert: (id, updates) => set((state) => ({
+    alerts: state.alerts.map(a => a.id === id ? { ...a, ...updates } : a)
+  })),
   setInitialAlerts: (alerts) => set({ alerts }),
   setStats: (stats) => set({ stats }),
 }));

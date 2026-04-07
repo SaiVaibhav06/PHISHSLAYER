@@ -11,8 +11,8 @@ export const api = {
      const res = await axios.get(`${API_BASE}/alerts`);
      return res.data;
   },
-  analyzeContent: async (content) => {
-    const res = await axios.post(`${API_BASE}/analyze`, { content });
+  analyzeContent: async (content, filename = null) => {
+    const res = await axios.post(`${API_BASE}/analyze`, { content, filename });
     return res.data;
   },
   simulateAttack: async () => {
