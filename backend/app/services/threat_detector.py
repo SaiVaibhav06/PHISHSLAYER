@@ -18,7 +18,8 @@ async def analyze_packet(packet_info: dict):
             alert_type="Large ICMP Packet (Ping of Death Attempt)",
             ip=src_ip,
             severity="critical",
-            message=f"Detected massive ICMP packet of size {payload_size} bytes."
+            message=f"Detected massive ICMP packet of size {payload_size} bytes.",
+            categories=["Malware", "Suspicious Traffic"]
         )
         return
         
@@ -28,7 +29,8 @@ async def analyze_packet(packet_info: dict):
             alert_type="Suspicious External Payload",
             ip=src_ip,
             severity="medium",
-            message=f"External IP sending large {protocol} payload ({payload_size} bytes)."
+            message=f"External IP sending large {protocol} payload ({payload_size} bytes).",
+            categories=["Suspicious Traffic"]
         )
         return
         
@@ -38,6 +40,7 @@ async def analyze_packet(packet_info: dict):
             alert_type="High Risk IP Connection",
             ip=src_ip,
             severity="high",
-            message=f"Connection attempt from known high-risk subnet ({src_ip})."
+            message=f"Connection attempt from known high-risk subnet ({src_ip}).",
+            categories=["Phishing", "Financial Fraud"]
         )
         return

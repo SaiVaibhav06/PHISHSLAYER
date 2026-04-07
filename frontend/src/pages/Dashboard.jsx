@@ -1,7 +1,8 @@
 import { LayoutDashboard, ShieldAlert, Activity, GitCommit } from "lucide-react";
-import NetworkActivity from "../components/network/NetworkActivity";
 import { useAlertStore } from "../store/useAlertStore";
 import { Badge } from "../components/ui/Badge";
+import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useMemo } from "react";
 
 export default function Dashboard() {
   const alerts = useAlertStore((state) => state.alerts);
@@ -9,11 +10,38 @@ export default function Dashboard() {
   
   // Calculate top threats
   const highSeverity = alerts.filter(a => a.severity === 'high' || a.severity === 'critical').length;
+  const mediumSeverity = alerts.filter(a => a.severity === 'medium').length;
+  const lowSeverity = alerts.filter(a => a.severity === 'low').length;
+
+  const pieData = [
+    { name: 'High/Critical', value: highSeverity, color: '#ef4444' },
+    { name: 'Medium', value: mediumSeverity, color: '#f59e0b' },
+    { name: 'Low/Info', value: lowSeverity, color: '#3b82f6' }
+  ].filter(d => d.value > 0);
+  
+  // Basic mock time series using alerts (if empty, empty chart)
+  const timeData = useMemo(() => {
+    if (alerts.length === 0) return [];
+    
+    // Group by minute
+    const grouped = {};
+    alerts.forEach(a => {
+       const key = new Date(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+       grouped[key] = (grouped[key] || 0) + 1;
+    });
+    
+    return Object.keys(grouped).reverse().map(time => ({
+       time,
+       Threats: grouped[time]
+    })).slice(-10); // last 10 minutes
+  }, [alerts]);
 
   return (
     <div className="space-y-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">SOC Overview</h1>
+        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+          <Activity className="w-8 h-8 text-primary" /> SOC Overview
+        </h1>
         <p className="text-slate-400">High-level view of your security posture across the network.</p>
       </div>
 
@@ -48,16 +76,20 @@ export default function Dashboard() {
         </div>
 
         {/* Card 3 */}
-        <div className="glass-panel p-5 relative overflow-hidden group hover:border-success/50 transition-colors">
+        <div className="glass-panel p-5 relative overflow-hidden group hover:border-warning/50 transition-colors">
           <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-success/10 text-success rounded-lg">
-              <Activity className="w-5 h-5" />
+            <div className="p-2 w-full h-[50px] bg-black/20 rounded-lg overflow-hidden relative">
+               {/* Custom progress bar visually representing severity ratio */}
+               <div className="absolute inset-0 flex rounded overflow-hidden opacity-50">
+                  <div style={{width: `${(lowSeverity/Math.max(alerts.length,1))*100}%`}} className="bg-blue-500 h-full"></div>
+                  <div style={{width: `${(mediumSeverity/Math.max(alerts.length,1))*100}%`}} className="bg-warning h-full"></div>
+                  <div style={{width: `${(highSeverity/Math.max(alerts.length,1))*100}%`}} className="bg-danger h-full"></div>
+               </div>
             </div>
           </div>
-          <p className="text-sm font-medium text-slate-400 mb-1">Active Monitoring</p>
-          <h3 className="text-lg font-bold text-success-400 flex items-center gap-2 mt-2">
-            <div className="w-2 h-2 rounded-full bg-success"></div>
-            Online
+          <p className="text-sm font-medium text-slate-400 mb-1">Risk Saturation</p>
+          <h3 className="text-lg font-bold text-slate-300">
+             {Math.round(((highSeverity*3 + mediumSeverity*2 + lowSeverity*1) / Math.max(alerts.length*3, 1)) * 100)}%
           </h3>
         </div>
 
@@ -74,29 +106,44 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-           <NetworkActivity />
-        </div>
-        
-        <div className="glass-panel p-5 flex flex-col h-full">
-           <h3 className="text-lg font-semibold border-b border-white/10 pb-4 mb-4 flex items-center justify-between">
-              Recent Activity
-              <span className="text-xs px-2 py-1 bg-white/5 rounded-md font-mono">{alerts.length}</span>
-           </h3>
-           <div className="flex-1 overflow-auto space-y-3">
-              {alerts.slice(0, 5).map(alert => (
-                 <div key={alert.id} className="flex gap-3 text-sm pb-3 border-b border-white/5 last:border-0 last:pb-0">
-                    <Badge variant={alert.severity} className="shrink-0 mt-0.5">{alert.severity.toUpperCase()[0]}</Badge>
-                    <div>
-                       <p className="font-medium text-slate-200">{alert.type}</p>
-                       <p className="text-xs text-slate-500 line-clamp-1">{alert.message}</p>
-                    </div>
-                 </div>
-              ))}
-              {alerts.length === 0 && (
-                 <p className="text-sm text-slate-500 text-center py-8">No recent alerts</p>
+        <div className="lg:col-span-2 space-y-6">
+           <div className="glass-panel p-5 h-[300px]">
+              <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">Detection Frequency</h3>
+              {timeData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="80%">
+                  <AreaChart data={timeData}>
+                    <defs>
+                      <linearGradient id="colorThreats" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#818cf8" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="time" stroke="#475569" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#475569" fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#1e293b'}} itemStyle={{color: '#c7d2fe'}} />
+                    <Area type="monotone" dataKey="Threats" stroke="#818cf8" fillOpacity={1} fill="url(#colorThreats)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-500 text-sm">Waiting for incoming telemetry...</div>
               )}
            </div>
+        </div>
+        
+        <div className="glass-panel p-5 flex flex-col h-[300px]">
+           <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">Severity Distribution</h3>
+           {pieData.length > 0 ? (
+             <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
+                    {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#1e293b'}} itemStyle={{color: '#e2e8f0'}} />
+                </PieChart>
+             </ResponsiveContainer>
+           ) : (
+             <div className="h-full flex items-center justify-center text-slate-500 text-sm">No significant threat data.</div>
+           )}
         </div>
       </div>
     </div>

@@ -1,19 +1,26 @@
 import { useAlertStore } from "../store/useAlertStore";
 import { Badge } from "../components/ui/Badge";
-import { Clock, Download } from "lucide-react";
+import { Clock, Download, MapPin, Activity } from "lucide-react";
+import ThreatDetailsModal from "../components/alerts/ThreatDetailsModal";
+import { useState } from "react";
 
 export default function History() {
   const alerts = useAlertStore(state => state.alerts);
+  const [selectedAlert, setSelectedAlert] = useState(null);
 
   const exportToCSV = () => {
     if (alerts.length === 0) return;
     
-    const headers = ['Timestamp', 'Source IP', 'Type', 'Severity', 'Message'];
+    const headers = ['Timestamp', 'Source IP', 'ISP', 'Country', 'Type', 'Categories', 'Severity', 'Status', 'Message'];
     const csvRows = alerts.map(alert => [
       new Date(alert.timestamp).toISOString(),
       alert.ip,
+      alert.geo_location?.isp || 'Unknown',
+      alert.geo_location?.country || 'Unknown',
       `"${alert.type.replace(/"/g, '""')}"`,
+      `"${alert.categories ? alert.categories.join(' | ') : ''}"`,
       alert.severity,
+      alert.status || 'Active',
       `"${alert.message.replace(/"/g, '""')}"`
     ].join(','));
     
@@ -55,20 +62,44 @@ export default function History() {
                <thead className="text-xs text-slate-400 uppercase bg-black/40 border-b border-white/10">
                   <tr>
                      <th className="px-6 py-4 font-medium">Timestamp</th>
-                     <th className="px-6 py-4 font-medium">Source IP</th>
-                     <th className="px-6 py-4 font-medium">Type</th>
+                     <th className="px-6 py-4 font-medium">Source / Geo</th>
+                     <th className="px-6 py-4 font-medium">Threat Intelligence</th>
                      <th className="px-6 py-4 font-medium">Severity</th>
-                     <th className="px-6 py-4 font-medium">Message</th>
+                     <th className="px-6 py-4 font-medium">Status</th>
                   </tr>
                </thead>
                <tbody>
                   {alerts.map((alert) => (
-                     <tr key={alert.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4 font-mono text-slate-500">{new Date(alert.timestamp).toLocaleString()}</td>
-                        <td className="px-6 py-4 font-mono text-slate-300">{alert.ip}</td>
-                        <td className="px-6 py-4 font-medium">{alert.type}</td>
+                     <tr 
+                       key={alert.id} 
+                       onClick={() => setSelectedAlert(alert.id)}
+                       className="border-b border-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                     >
+                        <td className="px-6 py-4 font-mono text-slate-500 whitespace-nowrap">{new Date(alert.timestamp).toLocaleString()}</td>
+                        <td className="px-6 py-4">
+                           <div className="flex flex-col">
+                              <span className="font-mono text-slate-300">{alert.ip}</span>
+                              <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
+                                 <MapPin className="w-3 h-3" /> {alert.geo_location?.country || 'Unknown'} - {alert.geo_location?.isp || 'Unknown'}
+                              </span>
+                           </div>
+                        </td>
+                        <td className="px-6 py-4">
+                           <div className="font-medium text-slate-200 mb-1">{alert.type}</div>
+                           <div className="flex flex-wrap gap-1">
+                              {alert.categories?.map((c, i) => (
+                                 <span key={i} className="text-[10px] px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30 whitespace-nowrap">
+                                    {c}
+                                 </span>
+                              ))}
+                           </div>
+                        </td>
                         <td className="px-6 py-4"><Badge variant={alert.severity}>{alert.severity.toUpperCase()}</Badge></td>
-                        <td className="px-6 py-4 text-slate-400">{alert.message}</td>
+                        <td className="px-6 py-4">
+                           <span className={`text-xs px-2 py-1 rounded-full border ${alert.status === 'blocked' ? 'bg-danger/20 text-danger border-danger/30' : 'bg-warning/20 text-warning border-warning/30'} flex items-center gap-1 w-max capitalize`}>
+                              <Activity className="w-3 h-3" /> {alert.status || 'Active'}
+                           </span>
+                        </td>
                      </tr>
                   ))}
                   {alerts.length === 0 && (
@@ -80,6 +111,8 @@ export default function History() {
             </table>
          </div>
       </div>
+
+      {selectedAlert && <ThreatDetailsModal alertId={selectedAlert} onClose={() => setSelectedAlert(null)} />}
     </div>
   );
 }
